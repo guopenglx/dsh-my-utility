@@ -18,7 +18,7 @@
 *   Date   : 2012 / 3 / 20                                              *
 *                                                                       *
 *                                                                       *
-*   CopyRight @ ∂≠ ´∫∆ ( DongShiHao ) / ¿Ì—ß‘∫ ˝—ßœµ                    *
+*   CopyRight @ Ëë£ËØóÊµ© ( DongShiHao ) / ÁêÜÂ≠¶Èô¢Êï∞Â≠¶Á≥ª                    *
 *               in East China University Of Science and Techinology     *
 *                                                                       *
 *   # size_balance_tree                                                 *
