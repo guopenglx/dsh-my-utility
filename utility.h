@@ -1,6 +1,7 @@
 #ifndef DSH_UTILITY_H
 #define DSH_UTILITY_H
 
+#include <utility>
 #include <memory>
 
 /************************************************************************
@@ -17,6 +18,7 @@
 *                                                                       *
 *      # version 1 : RAII缓冲区管理                                     *
 *************************************************************************/
+
 
 namespace DSH
 {
@@ -46,6 +48,8 @@ namespace DSH
 			:mBlockSize(_BlockSize) , mAllocator() ,  mBuffer(mAllocator.allocate(mBlockSize))
 		{
 			//
+			for(std::size_t i = 0 ; i < mBlockSize ; ++i )
+				mAllocator.construct( mBuffer + i , Ty()) ;
 		}
 
 		SafePtrMgr( Self&& other ) 
@@ -53,6 +57,7 @@ namespace DSH
 			mBuffer( other.mBuffer )
 		{
 			//
+			other.mBuffer = nullptr ;
 		}
 
 		~SafePtrMgr()
@@ -78,7 +83,10 @@ namespace DSH
 		inline 
 			void release()
 		{
+			for(std::size_t i = 0 ; i < mBlockSize ; ++i )
+				mAllocator.destroy( mBuffer + i );
 			mAllocator.deallocate( mBuffer , mBlockSize );
+			mBuffer = nullptr ;
 		}
 
 		inline 
