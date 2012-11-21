@@ -44,6 +44,8 @@ namespace DSH
 			//
 		}
 
+		// Initial pointer by BlockSize 
+		// ptr = new Ty[BlockSize] 
 		SafePtrMgr( std::size_t _BlockSize )
 			:mBlockSize(_BlockSize) , mAllocator() ,  mBuffer(mAllocator.allocate(mBlockSize))
 		{
@@ -62,7 +64,8 @@ namespace DSH
 
 		~SafePtrMgr()
 		{
-			release() ;
+			if( mBuffer )
+				release() ;
 		}
 
 	public:
@@ -77,6 +80,7 @@ namespace DSH
 				mBlockSize  = other.mBlockSize ;
 				mAllocator  = other.mAllocator ;
 				mBuffer     = other.mBuffer ;
+				other.mBuffer = nullptr ;
 			}
 		}
 
@@ -106,14 +110,76 @@ namespace DSH
 		{
 			return mBuffer != nullptr ;
 		}
-
 	private:
 		/* Member Var */
 		std::size_t mBlockSize ;
+		Alloc       mAllocator ;
+		Ty         *mBuffer ;
+	};
 
-		Alloc mAllocator ;
+	template<typename Ty , typename Alloc , typename DeAlloc>
+	class SafeSrcMgr
+	{
+	public:
+		typedef typename SafeSrcMgr<Ty , Alloc , DeAlloc> Self ;
+	private:
+		/* Forbid  Copy Constructor  */
+		SafeSrcMgr(const Self& other) ;
 
-		Ty *mBuffer ;
+		/* Forbid  Copy Assignment  */
+		Self& operator = (const Self& other) ;
+
+	public:
+		SafeSrcMgr( Alloc _allocator , DeAlloc _deallocator) 
+			:m_allocator() , m_deallocator() , mBuffer(nullptr) 
+		{
+			m_allocator( mBuffer );
+		}
+
+		SafeSrcMgr( Self&& other )
+			:m_allocator(std::move(other.m_allocator)),
+			m_deallocator(std::move(other.m_deallocator)),
+			mBuffer(other.mBuffer) 
+		{
+			//
+			other.mBuffer = nullptr ;
+		}
+
+		~SafeSrcMgr()
+		{
+			if( mBuffer ) 
+				release() ;
+		}
+	public:
+
+		Self& operator = (Self&& other)
+		{
+			if( this == std::addressof(other) ) return *this ;
+
+			release() ;
+			m_allocator   = std::move(other.m_allocator);
+			m_deallocator = std::move(other.m_deallocator);
+			mBuffer       = std::move(other.mBuffer);
+			other.mBuffer = nullptr ;
+		}
+
+		inline 
+			void release() 
+		{
+			m_deallocator( mBuffer );
+		}
+
+		inline 
+			Ty* get() const
+		{
+			return mBuffer ;
+		}
+
+	private:
+
+		Alloc   m_allocator ;
+		DeAlloc m_deallocator ;
+		Ty     *mBuffer ;
 	};
 }
 
