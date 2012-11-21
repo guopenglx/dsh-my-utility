@@ -2,9 +2,10 @@
 #define _DSH_MAP_H
 
 /* Flag Field */
-#define _GCC_COMPILER
+//#define _GCC_COMPILER
 /* Flag Field */
 
+#include <initializer_list>
 #include "bits\size_balance_tree.h"
 
 /************************************************************************
@@ -40,7 +41,7 @@ namespace DSH
 		{
 			key_comp   _comp_ ;
 		public:
-			bool operator() (const value_type& lhs, const value_type& rhs) const
+			inline bool operator() (const value_type& lhs, const value_type& rhs) const
 			{ return _comp_(lhs.first,rhs.first) ; }
 		} ;
 	private:
@@ -56,7 +57,6 @@ namespace DSH
 		{
 		}
 
-#ifdef _GCC_COMPILER
 		map(const std::initializer_list<value_type>& _list)
 			:_M_()
 		{
@@ -67,7 +67,6 @@ namespace DSH
 				_M_.insert(*_pCur) ;
 			}
 		}
-#endif
 		map(const map& other)
 			:_M_(other._M_)
 		{
