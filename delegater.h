@@ -3,10 +3,9 @@
 
 
 /* Flag Field */
-#define _GCC_COMPILER
+//#define _GCC_COMPILER
 /* Flag Field */
 
-#ifdef _GCC_COMPILER
 
 #include <functional>
 #include <algorithm>
@@ -21,12 +20,11 @@
 *   Date   : 2012 / 8 / 17                                              *
 *                                                                       *
 *                                                                       *
-*   CopyRight @ 董诗浩 ( DongShiHao ) / 理学院数学系                    *
+*   CopyRight @ 董诗浩 ( DongShiHao ) / 理学院数学系                   *
 *               in East China University Of Science and Techinology     *
 *                                                                       *
 *   # delegater                                                         *
 *                                                                       *
-*  实现 C# 的多播委托, operator += 可以支持 lambda表达式                *
 *                                                                       *
 *************************************************************************/
 
@@ -355,7 +353,5 @@ namespace _DSH {
 	};
 
 }   /// _DSH
-
-#endif
 
 #endif // DELEGATE_H_INCLUDED
