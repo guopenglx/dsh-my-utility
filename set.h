@@ -2,8 +2,10 @@
 #define _DSH_SET_H
 
 /* Flag Field */
-#define _GCC_COMPILER
+//#define _GCC_COMPILER
 /* Flag Field */
+
+#include <initializer_list>
 
 #include "bits\size_balance_tree.h"
 
@@ -48,7 +50,6 @@ namespace DSH
 		{
 		}
 
-#ifdef _GCC_COMPILER
 		set(const std::initializer_list<value_type>& _list)
 			:_M_()
 		{
@@ -59,7 +60,6 @@ namespace DSH
 				_M_.insert(*_pCur) ;
 			}
 		}
-#endif
 
 		set(const set& other)
 			:_M_(other._M_)
