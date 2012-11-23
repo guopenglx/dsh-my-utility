@@ -3,6 +3,7 @@
 
 #include <utility>
 #include <memory>
+#include <functional>
 
 /************************************************************************
 *                                                                       *
@@ -16,7 +17,7 @@
 *                                                                       *
 *   # Utility Library                                                   *
 *                                                                       *
-*      # version 1 : RAII缓冲区管理                                     *
+*      # version 1 : RAII      管理                                     *
 *************************************************************************/
 
 
@@ -46,12 +47,14 @@ namespace DSH
 
 		// Initial pointer by BlockSize 
 		// ptr = new Ty[BlockSize] 
-		SafePtrMgr( std::size_t _BlockSize )
+		SafePtrMgr( std::size_t _BlockSize , const Ty& _Value = Ty() )
 			:mBlockSize(_BlockSize) , mAllocator() ,  mBuffer(mAllocator.allocate(mBlockSize))
 		{
 			//
-			for(std::size_t i = 0 ; i < mBlockSize ; ++i )
-				mAllocator.construct( mBuffer + i , Ty()) ;
+			if( mBuffer != nullptr ){
+				for(std::size_t i = 0 ; i < mBlockSize ; ++i )
+					mAllocator.construct( mBuffer + i , _Value ) ;
+			}
 		}
 
 		SafePtrMgr( Self&& other ) 
@@ -117,7 +120,17 @@ namespace DSH
 		Ty         *mBuffer ;
 	};
 
-	template<typename Ty , typename Alloc , typename DeAlloc>
+	//
+	//  param : Ty -> Type of handle 
+	//          Alloc -> Type of Function "allocator" 
+	//                   # opertator()(Ty *_buffer) : allocate and stored in buffer,nullptr if failed
+	//
+	//          DeAlloc -> Type of Function "deallocator"
+	//                   # operator()( Ty *_buffer) : deallocate the _buffer 
+	//
+	template<typename Ty ,
+		     typename Alloc = std::function<Ty*(void)>,
+			 typename DeAlloc = std::function<void(Ty*)>>
 	class SafeSrcMgr
 	{
 	public:
@@ -131,16 +144,19 @@ namespace DSH
 
 	public:
 		SafeSrcMgr( Alloc _allocator , DeAlloc _deallocator) 
-			:m_allocator() , m_deallocator() , mBuffer(nullptr) 
+			: mBuffer(nullptr) 
 		{
-			m_allocator( mBuffer );
+			m_allocator = _allocator ;
+			m_deallocator = _deallocator ;
+
+			mBuffer = m_allocator();
 		}
 
 		SafeSrcMgr( Self&& other )
-			:m_allocator(std::move(other.m_allocator)),
-			m_deallocator(std::move(other.m_deallocator)),
-			mBuffer(other.mBuffer) 
+			:mBuffer(other.mBuffer) 
 		{
+			m_allocator = std::move(other.m_allocator);
+			m_deallocator = std::move(other.m_deallocator);
 			//
 			other.mBuffer = nullptr ;
 		}
@@ -170,9 +186,21 @@ namespace DSH
 		}
 
 		inline 
-			Ty* get() const
+			Ty* get() 
 		{
 			return mBuffer ;
+		}
+
+		inline 
+			const Ty* get() const
+		{
+			return mBuffer ;
+		}
+
+		inline 
+			operator bool () const
+		{
+			return mBuffer != nullptr ;
 		}
 
 	private:
