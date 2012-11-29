@@ -17,7 +17,7 @@
 *                                                                       *
 *   # Utility Library                                                   *
 *                                                                       *
-*      # version 1 : RAII      管理                                     *
+*      # version 1 : RAII   资源管理                                    *
 *************************************************************************/
 
 
@@ -84,6 +84,8 @@ namespace DSH
 				mAllocator  = other.mAllocator ;
 				mBuffer     = other.mBuffer ;
 				other.mBuffer = nullptr ;
+
+				return *this ;
 			}
 		}
 
@@ -177,6 +179,8 @@ namespace DSH
 			m_deallocator = std::move(other.m_deallocator);
 			mBuffer       = std::move(other.mBuffer);
 			other.mBuffer = nullptr ;
+
+			return *this ;
 		}
 
 		inline 
