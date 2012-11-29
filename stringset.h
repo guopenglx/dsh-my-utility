@@ -5,6 +5,7 @@
 #include <utility>
 #include <cassert>
 #include <algorithm>
+#include <memory>
 
 /************************************************************************
 *                                                                       *
@@ -19,6 +20,8 @@
 *   # String Set                                                        *
 *                                                                       *
 *      # version 1 : 基于字典树的String Set                             *
+*      # version 2 : 增加字典序导出                                     *
+*                    增加新哈希                                         *
 *************************************************************************/
 
 
@@ -86,6 +89,7 @@ namespace DSH
 
 namespace _DSH
 {
+
 	template<typename charT , typename boolT>
 	class _trie_node
 	{
@@ -355,7 +359,46 @@ namespace _DSH
 			return true ;
 		}
 
+		template<typename FwdIter>
+		inline 
+			FwdIter lexicographical_copy( FwdIter dResult ) const
+			// *dResult shall has operator +=() 
+		{
+			_lexicographical_traverse( mRoot , dResult );
+			return dResult ;
+		}
+
 	private:
+		template<typename FwdIter>
+		inline
+			void _lexicographical_traverse(node_type*root , FwdIter& dResult ) const
+		{
+			if( root == nullptr ) return ;
+			
+			if( root->getEnd() && !root->getNil() )
+				//  one string
+			{
+				std::basic_string<char_type,trait_type> _Tmp("");
+
+				const node_type *Cur( root ) ;
+				while( !Cur->getNil() )
+				{
+					_Tmp += Cur->getValue() ;
+				}
+				std::reverse( std::begin( _Tmp ) , std::end( _Tmp ) );
+
+				*dResult++ = std::move(_Tmp) ;
+			}
+
+			node_type **begin = &((*root)[0]);
+			node_type **end = &((*root)[buf_size]);
+
+			while( begin != end )
+			{
+				_lexicographical_traverse( *begin++ , dResult );
+			}
+		}
+
 		void _copy( node_type *&myRoot ,const node_type *otherRoot ) 
 		{
 			if( otherRoot != nullptr )
@@ -498,6 +541,13 @@ namespace DSH
 		inline bool empty() const 
 		{
 			return m_size == 0 ;
+		}
+
+		template<typename FwdIter>
+		inline 
+			FwdIter lexicographical_copy( FwdIter dResult ) const
+		{
+			return m_trie.lexicographical_copy( dResult );
 		}
 
 	private:
