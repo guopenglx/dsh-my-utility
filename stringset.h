@@ -7,6 +7,10 @@
 #include <algorithm>
 #include <memory>
 
+// Flag
+//#define _DSH_OLD
+// Flag
+
 /************************************************************************
 *                                                                       *
 *   Author : DSH                                                        *
@@ -67,7 +71,7 @@ namespace DSH
 				return _ch - charT('0');
 			}
 		};
-		
+
 		// 数字字母大小写混合
 		template<typename charT>
 		struct alpha_number
@@ -104,11 +108,11 @@ namespace _DSH
 
 	public:
 		_trie_node()
-			:value() , is_end(false) , buf_size(0) ,is_nil(false) child(nullptr)
+			:value() , is_end(false) , buf_size(0),child_num(0),is_nil(false) child(nullptr)
 		{ }
 
 		_trie_node(char_type _value , flag_type _is_end , std::size_t _buf_size , flag_type _is_nil)
-			:value(_value),is_end(_is_end),buf_size(_buf_size),is_nil(_is_nil),child(nullptr)
+			:value(_value),is_end(_is_end),buf_size(_buf_size),child_num(0),is_nil(_is_nil),child(nullptr)
 		{
 			try {
 				child = this->_get_alloc().allocate( buf_size );
@@ -154,12 +158,14 @@ namespace _DSH
 		inline size_type& getSize() { return buf_size; } 
 		inline const size_type getSize() const { return buf_size ; }
 
+		inline size_type& getChildSize() { return child_num ; } 
+		inline const size_type getChildSize() const { return child_num ; }
+
 		inline flag_type& getEnd() { return is_end; }
 		inline const flag_type getEnd() const { return is_end ; }
 
 		inline flag_type& getNil() { return is_nil ; }
 		inline const flag_type getNil() const { return is_nil ;}
-
 
 	private:
 		alloc_type _get_alloc() const { return alloc_type() ; } 
@@ -168,7 +174,8 @@ namespace _DSH
 		char_type  value ;
 		flag_type  is_end ;
 		flag_type  is_nil ;
-		size_type  buf_size;
+		size_type  buf_size; 
+		size_type  child_num ;
 		pointer    *child ;
 		pointer    parent ;
 	};
@@ -283,6 +290,9 @@ namespace _DSH
 
 						// Set Parent 
 						((*pCur)[index])->getParent() = pCur ;
+
+						// Child Size Increase
+						++pCur->getChildSize() ;
 					} catch(...) { throw ; }
 				}
 
@@ -322,7 +332,7 @@ namespace _DSH
 			if( pCur->getNil() ) return true ;
 
 			if( !canBeDestroy(pCur) )
-			// Can Not Destroy this node 
+				// Can Not Destroy this node 
 			{
 				pCur->getEnd() = false ;
 
@@ -332,6 +342,9 @@ namespace _DSH
 			// Can destroy this node  
 			node_type *pFather( pCur->getParent() );
 			(*pFather)[ hasher(pCur->getValue()) ] = nullptr ;
+
+			// Decrease Child Size
+			--pFather->getChildSize() ;
 
 			this->_get_alloc().destroy( pCur );
 			this->_get_alloc().deallocate(pCur ,1) ;
@@ -345,9 +358,14 @@ namespace _DSH
 					(*pFather)[ hasher(pCur->getValue()) ] = nullptr ;
 
 					this->_get_alloc().destroy( pCur );
-					this->_get_alloc().deallocate(pCur , 1);
+					this->_get_alloc().deallocate( pCur , 1);
 
 					pCur = pFather ;
+
+					if( !pCur->getNil() )
+						--pCur->getChildSize();
+					else
+						break ;
 				}
 				else
 				{
@@ -364,17 +382,23 @@ namespace _DSH
 			FwdIter lexicographical_copy( FwdIter dResult ) const
 			// *dResult shall has operator +=() 
 		{
+#ifdef _DSH_OLD
 			_lexicographical_traverse( mRoot , dResult );
 			return dResult ;
+#else
+			return _lexicographical_traverse( mRoot , dResult );
+#endif
 		}
 
 	private:
+
+#ifdef _DSH_OLD
 		template<typename FwdIter>
 		inline
 			void _lexicographical_traverse(node_type*root , FwdIter& dResult ) const
 		{
 			if( root == nullptr ) return ;
-			
+
 			if( root->getEnd() && !root->getNil() )
 				//  one string
 			{
@@ -384,11 +408,14 @@ namespace _DSH
 				while( !Cur->getNil() )
 				{
 					_Tmp += Cur->getValue() ;
+					Cur = Cur->getParent() ;
 				}
 				std::reverse( std::begin( _Tmp ) , std::end( _Tmp ) );
 
 				*dResult++ = std::move(_Tmp) ;
 			}
+
+			if( root->getChildSize() == 0 ) return ;
 
 			node_type **begin = &((*root)[0]);
 			node_type **end = &((*root)[buf_size]);
@@ -397,6 +424,62 @@ namespace _DSH
 			{
 				_lexicographical_traverse( *begin++ , dResult );
 			}
+		}
+#else
+		template<typename FwdIter>
+		inline 
+			FwdIter _lexicographical_traverse( node_type *root , FwdIter dResult ) const
+		{
+			if( root == nullptr || canBeDestroy(root) ) return dResult;
+
+			size_type  _Top(0) ;
+			node_type *_Stack[MAX_LEN] = { nullptr };
+
+			_Stack[_Top++] = root ;
+			// Traverse
+			
+			while( _Top )
+			{
+				node_type *pTmp = _Stack[--_Top];
+
+				assert( pTmp != nullptr );
+
+				if( pTmp->getEnd() && !pTmp->getNil() )
+					_export( pTmp , dResult );
+
+				if( pTmp->getChildSize() == 0 ) continue ;
+
+				node_type **begin =  &((*pTmp)[0]) ;
+				node_type **end   =  &((*pTmp)[buf_size]) ;
+
+				for( --end ; end >= begin ; --end )
+				{
+					if( *end != nullptr )
+					{
+						assert( _Top <= MAX_LEN );
+						_Stack[_Top++] = *end ;
+					}
+				}
+			}
+
+			return dResult ;
+		}
+#endif
+
+		template<typename FwdIter>
+		inline void _export( node_type *pCur , FwdIter& dResult ) const 
+		{
+			std::basic_string<char_type,trait_type> _Tmp("");
+
+			const node_type *Cur( pCur ) ;
+			while( !Cur->getNil() )
+			{
+				_Tmp += Cur->getValue() ;
+				Cur = Cur->getParent() ;
+			}
+			std::reverse( std::begin( _Tmp ) , std::end( _Tmp ) );
+
+			*dResult++ = std::move(_Tmp) ;
 		}
 
 		void _copy( node_type *&myRoot ,const node_type *otherRoot ) 
@@ -411,6 +494,8 @@ namespace _DSH
 						otherRoot->getSize(),
 						otherRoot->getNil()
 						);
+
+					mRoot->getChildSize() = otherRoot->getChildSize() ;
 
 					// Copy the sub-tree
 					for(size_type i = 0 ; i < buf_size ; ++i)
@@ -444,10 +529,12 @@ namespace _DSH
 
 		inline bool canBeDestroy( node_type *ptr ) const
 		{
-			node_type **end = &((*ptr)[buf_size]) ;
-			for( node_type **begin =  &((*ptr)[0]) ; begin != end; ++begin )
-				if( (*begin) != nullptr ) return false ;
-			return true ;
+			//			node_type **end = &((*ptr)[buf_size]) ;
+			//			for( node_type **begin =  &((*ptr)[0]) ; begin != end; ++begin )
+			//				if( (*begin) != nullptr ) return false ;
+			//			return true ;
+
+			return ptr->getChildSize() == 0 ;
 		}
 
 		alloc_type _get_alloc() const { return alloc_type(); }
@@ -455,13 +542,15 @@ namespace _DSH
 		size_type buf_size ;
 		node_type *mRoot ;
 		hash_type hasher ;
+
+		const static size_type MAX_LEN = 256 ;
 	};
 }
 
 namespace DSH
 {
 	template<typename charHash ,
-		     typename charTraits = std::char_traits<typename charHash::char_type>>
+		typename charTraits = std::char_traits<typename charHash::char_type>>
 	class stringset {
 	public:
 		typedef charHash hash_type ;
