@@ -6,6 +6,7 @@
 #include <cassert>
 #include <algorithm>
 #include <memory>
+#include <list>
 
 // Flag
 //#define _DSH_OLD
@@ -24,8 +25,12 @@
 *   # String Set                                                        *
 *                                                                       *
 *      # version 1 : 基于字典树的String Set                             *
+*                                                                       *
 *      # version 2 : 增加字典序导出                                     *
 *                    增加新哈希                                         *
+*                                                                       *
+*      # version 3 : 增加内存优先策略                                   *
+*                                                                       *
 *************************************************************************/
 
 
@@ -93,18 +98,18 @@ namespace DSH
 
 namespace _DSH
 {
-
-	template<typename charT , typename boolT>
+	template<typename charT , bool is_hash>
 	class _trie_node
 	{
 	public:
 		typedef charT             char_type;
-		typedef boolT             flag_type;
+		typedef bool              flag_type;
 		typedef std::size_t       size_type  ;
 
-		typedef _trie_node<charT,boolT> _Self;
-		typedef _Self*                  pointer ;
-		typedef std::allocator<pointer> alloc_type ;
+		typedef _trie_node<charT ,is_hash> _Self ;
+		typedef _Self*                     pointer ;
+		typedef _Self*                     child_type ;
+		typedef std::allocator<pointer>    alloc_type ;
 
 	public:
 		_trie_node()
@@ -139,6 +144,7 @@ namespace _DSH
 		_Self& operator = (_Self&& other) ;
 
 	public:
+
 		inline pointer& operator[](size_type key) { 
 			assert(child != nullptr);
 			return *(child + key) ;
@@ -176,17 +182,303 @@ namespace _DSH
 		flag_type  is_nil ;
 		size_type  buf_size; 
 		size_type  child_num ;
-		pointer    *child ;
+		child_type *child ;
 		pointer    parent ;
 	};
 
-	template<typename charT,typename charHash,typename charTraits = std::char_traits<charT>>
+	template<typename charT>
+	class _trie_node<charT , false>
+	{
+	public:
+		typedef charT             char_type;
+		typedef bool              flag_type;
+		typedef std::size_t       size_type  ;
+
+		typedef _trie_node<charT ,false>   _Self ;
+		typedef _Self*                     pointer ;
+		typedef std::allocator<pointer>    alloc_type ;
+
+		typedef std::list<std::pair<size_type,pointer>>       child_type ;
+		typedef typename child_type::iterator                 iterator ;
+
+	public:
+		_trie_node()
+			:value() , is_end(false) , buf_size(0),child_num(0),is_nil(false) child()
+		{ }
+
+		_trie_node(char_type _value , flag_type _is_end , std::size_t _buf_size , flag_type _is_nil)
+			:value(_value),is_end(_is_end),buf_size(_buf_size),child_num(0),is_nil(_is_nil),child()
+		{
+//			try {
+//				child = this->_get_alloc().allocate( buf_size );
+//				for(size_type i = 0 ; i < buf_size ; ++i )
+//					this->_get_alloc().construct( child + i , nullptr );
+//			} catch(...) {
+//				throw ;
+//			}
+
+
+		}
+
+		~_trie_node() { 
+//			for(size_type i = 0 ; i < buf_size  ; ++i )
+//				this->_get_alloc().destroy( child + i );
+//			this->_get_alloc().deallocate( child , buf_size );
+//			child = nullptr ;
+
+			parent = nullptr ;
+		}
+
+	private:
+		//Forbid
+		_trie_node(const _Self& other) ;
+		_trie_node(_Self&& other) ;
+		_Self& operator = (const _Self& other) ;
+		_Self& operator = (_Self&& other) ;
+
+	public:
+		typename child_type::iterator& child_begin() {
+			return child.begin();
+		}
+
+		const typename child_type::iterator child_begin() const {
+			return child.cbegin() ;
+		}
+
+		typename child_type::iterator& child_end() {
+			return child.end();
+		}
+
+		const typename child_type::iterator child_end() const {
+			return child.cend();
+		}
+
+		inline pointer& operator[](size_type key) { 
+//			assert(child != nullptr);
+			typedef typename child_type::iterator iter_type ;
+
+			iter_type pCur(std::begin(child));
+			for( ; pCur != std::end(child) ; ++pCur)
+				if( pCur->first == key ) return pCur->second ;
+
+			child.push_back( std::make_pair( key , nullptr ) ) ;
+			return (*(child.rbegin())).second ;
+		}
+
+		inline const pointer operator[](size_type key) const {
+//			assert(child != nullptr);
+			typedef typename child_type::iterator iter_type ;
+
+			for(iter_type pCur( std::begin(child) ) ; pCur != std::end(child) ; ++pCur)
+				if( pCur->first == key ) return pCur->second ;
+
+			return nullptr ;
+		}
+
+		inline pointer&  getParent()  { return parent ; }
+		inline const pointer getParent() const { return parent ; }
+
+		inline char_type& getValue() { return value ; }
+		inline const char_type getValue() const { return value ;}
+
+		inline size_type& getSize() { return buf_size; } 
+		inline const size_type getSize() const { return buf_size ; }
+
+		inline size_type& getChildSize() { return child_num ; } 
+		inline const size_type getChildSize() const { return child_num ; }
+
+		inline flag_type& getEnd() { return is_end; }
+		inline const flag_type getEnd() const { return is_end ; }
+
+		inline flag_type& getNil() { return is_nil ; }
+		inline const flag_type getNil() const { return is_nil ;}
+
+	private:
+		alloc_type _get_alloc() const { return alloc_type() ; } 
+
+	private:
+		char_type  value ;
+		flag_type  is_end ;
+		flag_type  is_nil ;
+		size_type  child_num ;
+		size_type  buf_size; 
+
+//		pointer    *child ;
+
+		child_type child ;
+		pointer    parent ;
+	};
+
+	
+
+
+
+	template<typename node_type , bool is_hash>
+	class _trie_helper
+	{
+	public:
+		const static std::size_t MAX_LEN = 256 ;
+
+		static inline 
+			bool canBeDestroy( node_type *ptr )
+		{
+			//			node_type **end = &((*ptr)[buf_size]) ;
+			//			for( node_type **begin =  &((*ptr)[0]) ; begin != end; ++begin )
+			//				if( (*begin) != nullptr ) return false ;
+			//			return true ;
+
+			return ptr->getChildSize() == 0 ;
+		}
+
+		template<typename FwdIter>
+		static inline
+			FwdIter _lexicographical_traverse( node_type *root , FwdIter dResult ) 
+		{
+
+			typedef typename node_type::size_type size_type ;
+
+			if( root == nullptr || canBeDestroy(root) ) return dResult;
+
+			size_type  _Top(0) ;
+			node_type *_Stack[MAX_LEN] = { nullptr };
+
+			_Stack[_Top++] = root ;
+			// Traverse
+			
+			while( _Top )
+			{
+				node_type *pTmp = _Stack[--_Top];
+
+				assert( pTmp != nullptr );
+
+				if( pTmp->getEnd() && !pTmp->getNil() )
+					_export( pTmp , dResult );
+
+				if( pTmp->getChildSize() == 0 ) continue ;
+
+				node_type **begin =  &((*pTmp)[0]) ;
+				node_type **end   =  &((*pTmp)[pTmp->getSize()]) ;
+
+				for( --end ; end >= begin ; --end )
+				{
+					if( *end != nullptr )
+					{
+						assert( _Top <= MAX_LEN );
+						_Stack[_Top++] = *end ;
+					}
+				}
+			}
+
+			return dResult ;
+		}
+
+		template<typename FwdIter>
+		static inline void _export( node_type *pCur , FwdIter& dResult )
+		{
+			typedef typename node_type::char_type char_type ;
+//			typedef typename node_type::trait_type trait_type ;
+
+			std::basic_string<char_type> _Tmp("");
+
+			const node_type *Cur( pCur ) ;
+			while( !Cur->getNil() )
+			{
+				_Tmp += Cur->getValue() ;
+				Cur = Cur->getParent() ;
+			}
+			std::reverse( std::begin( _Tmp ) , std::end( _Tmp ) );
+
+			*dResult++ = std::move(_Tmp) ;
+		}
+	};
+
+
+	template<typename node_type>
+	class _trie_helper<node_type,false>
+	{
+	public:
+		const static std::size_t MAX_LEN = 256 ;
+
+		static inline 
+			bool canBeDestroy( node_type *ptr )
+		{
+			//			node_type **end = &((*ptr)[buf_size]) ;
+			//			for( node_type **begin =  &((*ptr)[0]) ; begin != end; ++begin )
+			//				if( (*begin) != nullptr ) return false ;
+			//			return true ;
+
+			return ptr->getChildSize() == 0 ;
+		}
+
+		template<typename FwdIter>
+		static inline
+			FwdIter _lexicographical_traverse( node_type *root , FwdIter dResult ) 
+		{
+
+			typedef typename node_type::size_type size_type ;
+
+			if( root == nullptr || canBeDestroy(root) ) return dResult;
+
+			size_type  _Top(0) ;
+			node_type *_Stack[MAX_LEN] = { nullptr };
+
+			_Stack[_Top++] = root ;
+			// Traverse
+			
+			while( _Top )
+			{
+				node_type *pTmp = _Stack[--_Top];
+
+				assert( pTmp != nullptr );
+
+				if( pTmp->getEnd() && !pTmp->getNil() )
+					_export( pTmp , dResult );
+
+				if( pTmp->getChildSize() == 0 ) continue ;
+
+				typename node_type::iterator begin( pTmp->child_begin());
+				typename node_type::iterator end( pTmp->child_end() );
+
+				for( ; begin != end ; ++begin )
+				{
+					if( begin->second != nullptr )
+						_Stack[_Top++] = begin->second ;
+				}
+			}
+
+			return dResult ;
+		}
+
+		template<typename FwdIter>
+		static inline void _export( node_type *pCur , FwdIter& dResult )
+		{
+			typedef typename node_type::char_type char_type ;
+//			typedef typename node_type::trait_type trait_type ;
+
+			std::basic_string<char_type> _Tmp("");
+
+			const node_type *Cur( pCur ) ;
+			while( !Cur->getNil() )
+			{
+				_Tmp += Cur->getValue() ;
+				Cur = Cur->getParent() ;
+			}
+			std::reverse( std::begin( _Tmp ) , std::end( _Tmp ) );
+
+			*dResult++ = std::move(_Tmp) ;
+		}
+	};
+
+
+
+
+	template<typename charT,typename charHash,bool is_hash = true , typename charTraits = std::char_traits<charT>>
 	class _trie
 	{
 	public:
-		typedef _trie<charT,charHash,charTraits> _Self;
-		typedef charT                       char_type ;
-		typedef _trie_node<char_type ,bool> node_type ;
+		typedef _trie<charT,charHash,is_hash,charTraits> _Self;
+		typedef charT                          char_type ;
+		typedef _trie_node<char_type,is_hash>  node_type ;
 		typedef charHash                    hash_type ;
 		typedef std::allocator<node_type>  alloc_type ;
 		typedef std::size_t                size_type  ;
@@ -331,7 +623,7 @@ namespace _DSH
 
 			if( pCur->getNil() ) return true ;
 
-			if( !canBeDestroy(pCur) )
+			if( !_DSH::_trie_helper<node_type,is_hash>::canBeDestroy(pCur) )
 				// Can Not Destroy this node 
 			{
 				pCur->getEnd() = false ;
@@ -354,7 +646,7 @@ namespace _DSH
 			while( !pCur->getNil() ) {
 				pFather = pCur->getParent() ;
 
-				if( !pCur->getEnd() && canBeDestroy(pCur) ) {
+				if( !pCur->getEnd() && _DSH::_trie_helper<node_type,is_hash>::canBeDestroy(pCur) ) {
 					(*pFather)[ hasher(pCur->getValue()) ] = nullptr ;
 
 					this->_get_alloc().destroy( pCur );
@@ -386,7 +678,7 @@ namespace _DSH
 			_lexicographical_traverse( mRoot , dResult );
 			return dResult ;
 #else
-			return _lexicographical_traverse( mRoot , dResult );
+			return _DSH::_trie_helper<node_type,is_hash>::_lexicographical_traverse( mRoot , dResult );
 #endif
 		}
 
@@ -426,61 +718,8 @@ namespace _DSH
 			}
 		}
 #else
-		template<typename FwdIter>
-		inline 
-			FwdIter _lexicographical_traverse( node_type *root , FwdIter dResult ) const
-		{
-			if( root == nullptr || canBeDestroy(root) ) return dResult;
-
-			size_type  _Top(0) ;
-			node_type *_Stack[MAX_LEN] = { nullptr };
-
-			_Stack[_Top++] = root ;
-			// Traverse
-			
-			while( _Top )
-			{
-				node_type *pTmp = _Stack[--_Top];
-
-				assert( pTmp != nullptr );
-
-				if( pTmp->getEnd() && !pTmp->getNil() )
-					_export( pTmp , dResult );
-
-				if( pTmp->getChildSize() == 0 ) continue ;
-
-				node_type **begin =  &((*pTmp)[0]) ;
-				node_type **end   =  &((*pTmp)[buf_size]) ;
-
-				for( --end ; end >= begin ; --end )
-				{
-					if( *end != nullptr )
-					{
-						assert( _Top <= MAX_LEN );
-						_Stack[_Top++] = *end ;
-					}
-				}
-			}
-
-			return dResult ;
-		}
+		// remove to _trie_helper 
 #endif
-
-		template<typename FwdIter>
-		inline void _export( node_type *pCur , FwdIter& dResult ) const 
-		{
-			std::basic_string<char_type,trait_type> _Tmp("");
-
-			const node_type *Cur( pCur ) ;
-			while( !Cur->getNil() )
-			{
-				_Tmp += Cur->getValue() ;
-				Cur = Cur->getParent() ;
-			}
-			std::reverse( std::begin( _Tmp ) , std::end( _Tmp ) );
-
-			*dResult++ = std::move(_Tmp) ;
-		}
 
 		void _copy( node_type *&myRoot ,const node_type *otherRoot ) 
 		{
@@ -527,40 +766,29 @@ namespace _DSH
 			}
 		}
 
-		inline bool canBeDestroy( node_type *ptr ) const
-		{
-			//			node_type **end = &((*ptr)[buf_size]) ;
-			//			for( node_type **begin =  &((*ptr)[0]) ; begin != end; ++begin )
-			//				if( (*begin) != nullptr ) return false ;
-			//			return true ;
-
-			return ptr->getChildSize() == 0 ;
-		}
-
 		alloc_type _get_alloc() const { return alloc_type(); }
 	private:
 		size_type buf_size ;
 		node_type *mRoot ;
 		hash_type hasher ;
 
-		const static size_type MAX_LEN = 256 ;
 	};
 }
 
 namespace DSH
 {
-	template<typename charHash ,
-		typename charTraits = std::char_traits<typename charHash::char_type>>
+	// Speed Priority
+	template<typename charHash , bool speedPriority>
 	class stringset {
 	public:
 		typedef charHash hash_type ;
-		typedef charTraits trait_type ;
+		typedef std::char_traits<typename charHash::char_type> trait_type ;
 		typedef typename hash_type::char_type char_type ;
 
-		typedef stringset<hash_type,trait_type> self ;
+		typedef stringset<hash_type,speedPriority> self ;
 
 	private:
-		typedef _DSH::_trie<char_type,hash_type,trait_type>  container_type ;
+		typedef _DSH::_trie<char_type,hash_type,speedPriority,trait_type>  container_type ;
 
 	public:
 		stringset()
@@ -607,6 +835,16 @@ namespace DSH
 			return false ;
 		}
 
+		bool insert( const std::basic_string<char_type,trait_type>& _string )
+		{
+			if( m_trie.insert( _string.data() ) )
+			{
+				++m_size;
+				return true;
+			}
+			return false;
+		}
+
 		bool erase( const char_type* _string )
 		{
 			if( m_trie.erase( _string ) )
@@ -617,9 +855,24 @@ namespace DSH
 			return false ;
 		}
 
+		bool erase( const std::basic_string<char_type,trait_type>& _string )
+		{
+			if( m_trie.erase( _string.data() ) )
+			{
+				--m_size ;
+				return true ;
+			}
+			return false ;
+		}
+
 		bool find( const char_type* _string ) const
 		{
 			return m_trie.find( _string );
+		}
+
+		bool find( const std::basic_string<char_type,trait_type>& _string ) const
+		{
+			return m_trie.find( _string.data() );
 		}
 
 		inline std::size_t size() const 
@@ -635,6 +888,127 @@ namespace DSH
 		template<typename FwdIter>
 		inline 
 			FwdIter lexicographical_copy( FwdIter dResult ) const
+		{
+			return m_trie.lexicographical_copy( dResult );
+		}
+
+	private:
+		std::size_t    m_size ;
+		container_type m_trie ;
+	};
+
+	// Memory Priority 
+	template<typename charHash>
+	class stringset<charHash , false> 
+	{
+	public:
+		typedef charHash hash_type ;
+		typedef std::char_traits<typename charHash::char_type> trait_type ;
+		typedef typename hash_type::char_type char_type ;
+
+		typedef stringset<hash_type,false> self ;
+
+	private:
+		typedef _DSH::_trie<char_type,hash_type,false,trait_type>  container_type ;
+
+	public:
+		stringset()
+			:m_size(0),m_trie() 
+		{ }
+
+		stringset( const self& other )
+			:m_size(other.m_size) , m_trie(other.m_trie)
+		{ }
+
+		stringset(self&& other)
+			:m_size(other.m_size) , m_trie(std::move(other.m_trie))
+		{ }
+
+		~stringset()
+		{ // 
+		}
+
+		self& operator = (const self& other)
+		{
+			if( this == std::addressof(other) ) return *this ;
+			m_size = other.m_size ;
+			m_trie = other.m_trie ;
+
+			return *this ;
+		}
+
+		self& operator = (self&& other)
+		{
+			if( this == std::addressof(other)) return *this;
+			m_size = other.m_size ;
+			m_trie = std::move(other.m_trie);
+
+			return *this ;
+		}
+	public:
+		bool insert( const char_type* _string ) 
+		{
+			if( m_trie.insert( _string ) )
+			{
+				++m_size ;
+				return true ;
+			}
+			return false ;
+		}
+
+		bool insert( const std::basic_string<char_type,trait_type>& _string )
+		{
+			if( m_trie.insert( _string.data() ) )
+			{
+				++m_size;
+				return true;
+			}
+			return false;
+		}
+
+		bool erase( const char_type* _string )
+		{
+			if( m_trie.erase( _string ) )
+			{
+				--m_size ;
+				return true ;
+			}
+			return false ;
+		}
+
+		bool erase( const std::basic_string<char_type,trait_type>& _string )
+		{
+			if( m_trie.erase( _string.data() ) )
+			{
+				--m_size ;
+				return true ;
+			}
+			return false ;
+		}
+
+		bool find( const char_type* _string ) const
+		{
+			return m_trie.find( _string );
+		}
+
+		bool find( const std::basic_string<char_type,trait_type>& _string ) const
+		{
+			return m_trie.find( _string.data() );
+		}
+
+		inline std::size_t size() const 
+		{
+			return m_size ;
+		}
+
+		inline bool empty() const 
+		{
+			return m_size == 0 ;
+		}
+
+		template<typename FwdIter>
+		inline 
+			FwdIter depth_first_copy( FwdIter dResult ) const
 		{
 			return m_trie.lexicographical_copy( dResult );
 		}
