@@ -10,11 +10,10 @@
 #include <iterator>
 #include <cmath>
 #include <fstream>
+#include <unordered_set>
 
 const int N = 3000000 ;
 const double eps = 1e-5 ;
-
-//#define _MY_PC
 
 std::string getRandom( )
 {
@@ -29,8 +28,6 @@ int main()
 	std::srand( std::time(0)) ;
 	std::vector<std::string> strvec(N);
 
-#ifdef _MY_PC
-
 	{
 		std::ifstream testfile("F:\\stringset_data\\phone.txt");
 		for(int i = 0 ; i < N ; ++i ) {
@@ -38,17 +35,11 @@ int main()
 		}
 		testfile.close();
 	}
-   
-#else
-
-  for(int i = 0 ; i < N; ++i )
-      strvec[i] = getRandom();
-      
-#endif
 
 	DSH::timer mTimer ;
-	DSH::stringset<DSH::TR1::number<char>>     x ;
-	std::set<std::string>                      y ;
+	DSH::stringset<DSH::TR1::number<char>,true>  x ;
+	std::set<std::string>                        y ;
+//	std::unordered_set<std::string>            y ;
 
 	std::cout << "导入手机号码个数 N = " << N << std::endl; 
 //	std::cout << "去掉重复后个数 M = " << strvec.size() << std::endl;
@@ -58,7 +49,7 @@ int main()
 	mTimer.reset() ;
 	for(int i = 0 ; i < N ; ++i )
 	{
-		x.insert( strvec[i].data() );
+		x.insert( strvec[i] );
 	}
 	std::cout << "My StringSet : " << mTimer.elapsed() << " 秒" << std::endl; 
 	mTimer.reset() ;
@@ -73,7 +64,7 @@ int main()
 	mTimer.reset() ;
 	for(int i = 0 ; i < N ; ++i )
 	{
-		x.find( strvec[i].data() );
+		x.find( strvec[i] );
 	}
 	std::cout << "My StringSet : " << mTimer.elapsed() << " 秒" << std::endl; 
 	mTimer.reset() ;
@@ -92,27 +83,28 @@ int main()
 
 	mTimer.reset() ;
 	x.lexicographical_copy( std::back_inserter(outputx) );
+//	x.depth_first_copy( std::back_inserter(outputx)) ;
 	x_time = mTimer.elapsed() ;
 
 	mTimer.reset() ;
 	std::copy( y.begin() , y.end() , std::back_inserter(outputy) );
 	y_time = mTimer.elapsed();
 
-	if( !std::equal( outputx.begin() , outputx.end() , y.begin() ) )
-		std::cout << "出现Bug ! " << std::endl;
-	else {
+//	if( !std::equal( outputx.begin() , outputx.end() , y.begin() ) )
+//		std::cout << "非字典序" << std::endl;
+//	else {
 		x_time = (fabs(x_time) < eps) ? (0) : (x_time) ;
 		y_time = (fabs(y_time) < eps) ? (0) : (y_time) ;
 		std::cout << "My StringSet : " << x_time << " 秒" << std::endl ;
 		std::cout << "STL StringSet : " << y_time << " 秒" << std::endl;
-	}
+//	}
 
 	std::cout << std::endl;
 	std::cout << "删除 速度测试 : " << std::endl;
 	mTimer.reset() ;
 	for(int i = 0 ; i < N ; ++i )
 	{
-		x.erase( strvec[i].data() );
+		x.erase( strvec[i] );
 	}
 	std::cout << "My StringSet : " << mTimer.elapsed() << " 秒" << std::endl; 
 	mTimer.reset() ;
