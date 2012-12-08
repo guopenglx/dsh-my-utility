@@ -12,7 +12,7 @@
 #include <fstream>
 #include <unordered_set>
 
-const int N = 3000000 ;
+const int N = 4000000 ;
 const double eps = 1e-5 ;
 
 std::string getRandom( )
