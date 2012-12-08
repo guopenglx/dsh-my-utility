@@ -330,6 +330,34 @@ namespace _DSH
 			return ptr->getChildSize() == 0 ;
 		}
 
+#ifdef _DSH_OLD
+		template<typename FwdIter>
+		static inline
+			FwdIter _lexicographical_traverse(node_type *root , FwdIter dResult ) 
+		{
+			typedef typename node_type::size_type size_type ;
+
+			if( root == nullptr ) return dResult;
+
+			if( root->getEnd() && !root->getNil() )
+				//  one string
+			{
+				_export(root , dResult);
+			}
+
+			if( root->getChildSize() == 0 ) return dResult;
+
+			node_type **begin = &((*root)[0]);
+			node_type **end = &((*root)[root->getSize()]);
+
+			while( begin != end )
+			{
+				dResult = _lexicographical_traverse( *begin++ , dResult );
+			}
+
+			return dResult ;
+		}
+#else
 		template<typename FwdIter>
 		static inline
 			FwdIter _lexicographical_traverse( node_type *root , FwdIter dResult ) 
@@ -371,7 +399,7 @@ namespace _DSH
 
 			return dResult ;
 		}
-
+#endif
 		template<typename FwdIter>
 		static inline void _export( node_type *pCur , FwdIter& dResult )
 		{
@@ -674,52 +702,10 @@ namespace _DSH
 			FwdIter lexicographical_copy( FwdIter dResult ) const
 			// *dResult shall has operator +=() 
 		{
-#ifdef _DSH_OLD
-			_lexicographical_traverse( mRoot , dResult );
-			return dResult ;
-#else
 			return _DSH::_trie_helper<node_type,is_hash>::_lexicographical_traverse( mRoot , dResult );
-#endif
 		}
 
 	private:
-
-#ifdef _DSH_OLD
-		template<typename FwdIter>
-		inline
-			void _lexicographical_traverse(node_type*root , FwdIter& dResult ) const
-		{
-			if( root == nullptr ) return ;
-
-			if( root->getEnd() && !root->getNil() )
-				//  one string
-			{
-				std::basic_string<char_type,trait_type> _Tmp("");
-
-				const node_type *Cur( root ) ;
-				while( !Cur->getNil() )
-				{
-					_Tmp += Cur->getValue() ;
-					Cur = Cur->getParent() ;
-				}
-				std::reverse( std::begin( _Tmp ) , std::end( _Tmp ) );
-
-				*dResult++ = std::move(_Tmp) ;
-			}
-
-			if( root->getChildSize() == 0 ) return ;
-
-			node_type **begin = &((*root)[0]);
-			node_type **end = &((*root)[buf_size]);
-
-			while( begin != end )
-			{
-				_lexicographical_traverse( *begin++ , dResult );
-			}
-		}
-#else
-		// remove to _trie_helper 
-#endif
 
 		void _copy( node_type *&myRoot ,const node_type *otherRoot ) 
 		{
