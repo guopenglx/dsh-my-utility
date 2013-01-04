@@ -50,7 +50,7 @@ namespace DSH
 		{
 		}
 
-		set(const std::initializer_list<value_type>& _list)
+		set(std::initializer_list<value_type> _list)
 			:_M_()
 		{
 			for(auto _pCur = _list.begin() ;
