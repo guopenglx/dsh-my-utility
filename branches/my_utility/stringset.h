@@ -8,6 +8,8 @@
 #include <memory>
 #include <list>
 
+#include <initializer_list>
+
 // Flag
 //#define _DSH_OLD
 // Flag
@@ -764,7 +766,7 @@ namespace _DSH
 namespace DSH
 {
 	// Speed Priority
-	template<typename charHash , bool speedPriority>
+	template<typename charHash , bool speedPriority = true>
 	class stringset {
 	public:
 		typedef charHash hash_type ;
@@ -789,6 +791,13 @@ namespace DSH
 			:m_size(other.m_size) , m_trie(std::move(other.m_trie))
 		{ }
 
+		stringset( std::initializer_list<std::basic_string<char_type,trait_type>> _list )
+			:m_size( _list.size() )
+		{
+			for( auto Cur( std::begin(_list) ) ; Cur != std::end(_list) ; ++Cur )
+				this->insert( *Cur );
+		}
+
 		~stringset()
 		{ // 
 		}
@@ -811,15 +820,16 @@ namespace DSH
 			return *this ;
 		}
 	public:
-		bool insert( const char_type* _string ) 
-		{
-			if( m_trie.insert( _string ) )
-			{
-				++m_size ;
-				return true ;
-			}
-			return false ;
-		}
+
+//		bool insert( const char_type* _string ) 
+//		{
+//			if( m_trie.insert( _string ) )
+//			{
+//				++m_size ;
+//				return true ;
+//			}
+//			return false ;
+//		}
 
 		bool insert( const std::basic_string<char_type,trait_type>& _string )
 		{
@@ -831,15 +841,15 @@ namespace DSH
 			return false;
 		}
 
-		bool erase( const char_type* _string )
-		{
-			if( m_trie.erase( _string ) )
-			{
-				--m_size ;
-				return true ;
-			}
-			return false ;
-		}
+//		bool erase( const char_type* _string )
+//		{
+//			if( m_trie.erase( _string ) )
+//			{
+//				--m_size ;
+//				return true ;
+//			}
+//			return false ;
+//		}
 
 		bool erase( const std::basic_string<char_type,trait_type>& _string )
 		{
@@ -851,10 +861,10 @@ namespace DSH
 			return false ;
 		}
 
-		bool find( const char_type* _string ) const
-		{
-			return m_trie.find( _string );
-		}
+//		bool find( const char_type* _string ) const
+//		{
+//			return m_trie.find( _string );
+//		}
 
 		bool find( const std::basic_string<char_type,trait_type>& _string ) const
 		{
@@ -909,6 +919,13 @@ namespace DSH
 		stringset(self&& other)
 			:m_size(other.m_size) , m_trie(std::move(other.m_trie))
 		{ }
+		
+		stringset(std::initializer_list<std::basic_string<char_type,trait_type>> _list)
+			:m_size(_list.size())
+		{
+			for(auto Cur(std::begin(_list)) ; Cur != std::end(_list) ; ++Cur )
+				this->insert( *Cur );
+		}
 
 		~stringset()
 		{ // 
@@ -932,15 +949,16 @@ namespace DSH
 			return *this ;
 		}
 	public:
-		bool insert( const char_type* _string ) 
-		{
-			if( m_trie.insert( _string ) )
-			{
-				++m_size ;
-				return true ;
-			}
-			return false ;
-		}
+
+//		bool insert( const char_type* _string ) 
+//		{
+//			if( m_trie.insert( _string ) )
+//			{
+//				++m_size ;
+//				return true ;
+//			}
+//			return false ;
+//		}
 
 		bool insert( const std::basic_string<char_type,trait_type>& _string )
 		{
@@ -952,15 +970,15 @@ namespace DSH
 			return false;
 		}
 
-		bool erase( const char_type* _string )
-		{
-			if( m_trie.erase( _string ) )
-			{
-				--m_size ;
-				return true ;
-			}
-			return false ;
-		}
+//		bool erase( const char_type* _string )
+//		{
+//			if( m_trie.erase( _string ) )
+//			{
+//				--m_size ;
+//				return true ;
+//			}
+//			return false ;
+//		}
 
 		bool erase( const std::basic_string<char_type,trait_type>& _string )
 		{
@@ -972,10 +990,10 @@ namespace DSH
 			return false ;
 		}
 
-		bool find( const char_type* _string ) const
-		{
-			return m_trie.find( _string );
-		}
+//		bool find( const char_type* _string ) const
+//		{
+//			return m_trie.find( _string );
+//		}
 
 		bool find( const std::basic_string<char_type,trait_type>& _string ) const
 		{
@@ -994,7 +1012,7 @@ namespace DSH
 
 		template<typename FwdIter>
 		inline 
-			FwdIter depth_first_copy( FwdIter dResult ) const
+			FwdIter lexicographical_copy( FwdIter dResult ) const
 		{
 			return m_trie.lexicographical_copy( dResult );
 		}
