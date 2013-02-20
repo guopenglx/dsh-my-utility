@@ -2,6 +2,21 @@
 
 #include <utility>
 
+/************************************************************************
+*                                                                       *
+*   Author : DSH                                                        *
+*   Lang   : C++                                                        *
+*   Date   : 2013 / 2 / 20                                              *
+*                                                                       *
+*                                                                       *
+*   CopyRight @ 董诗浩 ( DongShiHao ) / 理学院数学系                    *
+*               in East China University Of Science and Techinology     *
+*                                                                       *
+*   # Functional Algorithm Based on Range                               *
+*                                                                       *
+*                                                                       *
+*************************************************************************/
+
 #define DSH_GEN_OPERATOR_OR( rhs_type ) \
 template<typename Container , typename OneFunc> \
 auto operator | (const Container& c , rhs_type<OneFunc> f) -> Container  \
